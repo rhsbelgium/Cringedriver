@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRINGE DRIVER</title>
+<style>
+body{margin:0;background:#000;font-family:monospace;overflow:hidden;}
+#menu{position:fixed;inset:0;background:#000;color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:15px;z-index:10;}
+select,input,button{font-size:18px;padding:10px;width:220px;}
+button{background:#ffe600;border:none;}
+canvas{display:block;margin:auto;background:#222;}
+#hud{position:absolute;top:10px;left:50%;transform:translateX(-50%);color:#0ff;font-size:18px;}
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <h1>CRINGE DRIVER</h1>
+  <input id="pseudo" placeholder="Pseudo" value="Joueur">
+  <select id="vehicle">
+    <option value="clio">Clio</option>
+    <option value="truck">Truck</option>
+  </select>
+  <select id="difficulty">
+    <option value="easy">Facile</option>
+    <option value="hard">Hardcore</option>
+  </select>
+  <button id="start">START</button>
+</div>
+
+<canvas id="game" width="360" height="640"></canvas>
+<div id="hud">Score: 0</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let gameStarted = false;
+let playerLane = 1;
+let score = 0;
+let speed = 2;
+
+let pseudo = "Joueur";
+let vehicle = "clio";
+
+const lanes = [80, 180, 280];
+let obstacles = [];
+
+function startGame(){
+  pseudo = document.getElementById("pseudo").value;
+  vehicle = document.getElementById("vehicle").value;
+  document.getElementById("menu").style.display="none";
+  gameStarted = true;
+}
+
+document.getElementById("start").addEventListener("click", startGame);
+document.getElementById("start").addEventListener("touchstart", function(e){
+  e.preventDefault();
+  startGame();
+});
+
+let startX = null;
+
+canvas.addEventListener("touchstart",function(e){
+  startX = e.touches[0].clientX;
+});
+
+canvas.addEventListener("touchend",function(e){
+  let dx = e.changedTouches[0].clientX - startX;
+  if(dx > 30 && playerLane < 2) playerLane++;
+  if(dx < -30 && playerLane > 0) playerLane--;
+});
+
+function vibrate(type){
+  if(!navigator.vibrate) return;
+  if(type==="hit") navigator.vibrate(200);
+}
+
+function spawnObstacle(){
+  let lane = Math.floor(Math.random()*3);
+  let type = Math.random();
+
+  if(type < 0.2){
+    lane = Math.floor(Math.random()*2);
+    obstacles.push({lane:lane,y:-100,width:2});
+  }else{
+    obstacles.push({lane:lane,y:-50,width:1});
+  }
+}
+
+function update(){
+  if(!gameStarted) return;
+
+  score++;
+  if(score % 200 === 0) speed += 0.2;
+
+  if(Math.random() < 0.02) spawnObstacle();
+
+  obstacles.forEach(function(o){
+    o.y += speed;
+
+    if(o.width === 1 && Math.abs(o.y-550)<40 && o.lane === playerLane){
+      crash();
+    }
+
+    if(o.width === 2 && Math.abs(o.y-550)<40 &&
+      (playerLane===o.lane || playerLane===o.lane+1)){
+      crash();
+    }
+  });
+
+  obstacles = obstacles.filter(function(o){return o.y<700;});
+  draw();
+}
+
+function draw(){
+  ctx.fillStyle="#111";
+  ctx.fillRect(0,0,360,640);
+
+  ctx.fillStyle="#333";
+  ctx.fillRect(40,0,280,640);
+
+  ctx.fillStyle = vehicle==="clio" ? "red" : "blue";
+  ctx.fillRect(lanes[playerLane]-20,550,40,60);
+
+  ctx.fillStyle="gray";
+  obstacles.forEach(function(o){
+    ctx.fillRect(lanes[o.lane]-20,o.y,40*o.width,60);
+  });
+
+  document.getElementById("hud").innerText =
+    pseudo + " | Score: " + score;
+}
+
+function crash(){
+  vibrate("hit");
+  alert("GAME OVER\nScore: "+score);
+  location.reload();
+}
+
+setInterval(update, 16);
+</script>
+
+</body>
+</html>
