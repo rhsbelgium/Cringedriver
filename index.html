@@ -6,197 +6,237 @@
 <title>CRINGE DRIVER</title>
 
 <style>
-body{margin:0;background:#000;font-family:monospace;color:#fff;overflow:hidden}
+body{
+  margin:0;
+  background:#000;
+  font-family:monospace;
+  color:#fff;
+  overflow:hidden;
+}
 
-/* MENU */
+/* ===== MENU ===== */
 #menuScreen{
-  position:fixed; inset:0;
-  display:flex; flex-direction:column;
-  justify-content:center; align-items:center;
-  gap:20px;
-  background:black;
+  position:fixed;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:15px;
+  background:#000;
+  z-index:10;
 }
 
 .title{
-  font-size:40px;
+  font-size:32px;
   color:#ffe600;
   animation:blink 1s infinite;
 }
-
 @keyframes blink{
   50%{opacity:0.3}
 }
 
-.menuBox{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-select,input{
+select,input,button{
   font-size:18px;
   padding:10px;
   width:220px;
 }
 
 button{
-  font-size:20px;
-  padding:12px;
   background:#ffe600;
   border:none;
-  cursor:pointer;
 }
 
-.preview{
-  width:80px;height:120px;
-  background:#222;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border:3px solid #fff;
+/* ===== GAME ===== */
+#gameScreen{
+  display:none;
 }
 
-/* GAME */
-#gameScreen{display:none;}
-canvas{display:block;margin:auto;background:#111;}
+canvas{
+  display:block;
+  margin:auto;
+  background:#111;
+}
 
 #hud{
   position:absolute;
   top:10px;
   left:50%;
   transform:translateX(-50%);
-  font-size:18px;
   color:#0ff;
+  font-size:18px;
 }
 </style>
 </head>
 
 <body>
 
+<!-- MENU -->
 <div id="menuScreen">
   <div class="title">CRINGE DRIVER</div>
 
-  <div class="preview" id="preview"></div>
+  <input id="pseudo" value="Joueur">
 
-  <div class="menuBox">
-    <input id="pseudo" value="Joueur">
+  <select id="vehicle">
+    <option value="clio">Clio</option>
+    <option value="truck">Truck</option>
+  </select>
 
-    <select id="vehicle">
-      <option value="clio">Clio</option>
-      <option value="truck">Truck</option>
-    </select>
+  <select id="difficulty">
+    <option value="easy">Facile</option>
+    <option value="hard">Hardcore</option>
+  </select>
 
-    <select id="difficulty">
-      <option value="easy">Facile</option>
-      <option value="hard">Hardcore</option>
-    </select>
-
-    <button id="startBtn">START</button>
-  </div>
+  <button id="startBtn">START</button>
 </div>
 
+<!-- GAME -->
 <div id="gameScreen">
   <canvas id="game" width="360" height="640"></canvas>
   <div id="hud"></div>
 </div>
 
 <script>
-const preview = document.getElementById("preview");
-const vehicleSelect = document.getElementById("vehicle");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-function updatePreview(){
-  preview.innerHTML="";
-  let box=document.createElement("div");
-  box.style.width="40px";
-  box.style.height="60px";
-  box.style.background=vehicleSelect.value==="clio"?"red":"blue";
-  preview.appendChild(box);
-}
-vehicleSelect.addEventListener("change",updatePreview);
-updatePreview();
+/* ===== VARIABLES ===== */
+let gameStarted = false;
+let playerLane = 1;
+let score = 0;
+let speed = 2;
 
-/* GAME */
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+let pseudo = "Joueur";
+let vehicle = "clio";
 
-let playerLane=1,score=0,speed=2;
-let pseudo="",vehicle="clio";
-const lanes=[80,180,280];
-let obstacles=[];
-let gameStarted=false;
+const lanes = [80,180,280];
+let obstacles = [];
 
+/* ===== START ===== */
 function startGame(){
-  pseudo=document.getElementById("pseudo").value;
-  vehicle=vehicleSelect.value;
+  pseudo = document.getElementById("pseudo").value;
+  vehicle = document.getElementById("vehicle").value;
 
-  document.getElementById("menuScreen").style.display="none";
-  document.getElementById("gameScreen").style.display="block";
+  document.getElementById("menuScreen").style.display = "none";
+  document.getElementById("gameScreen").style.display = "block";
 
-  gameStarted=true;
+  gameStarted = true;
 }
-document.getElementById("startBtn").onclick=startGame;
 
-canvas.addEventListener("touchstart",e=>startX=e.touches[0].clientX);
-canvas.addEventListener("touchend",e=>{
-  let dx=e.changedTouches[0].clientX-startX;
-  if(dx>30 && playerLane<2) playerLane++;
-  if(dx<-30 && playerLane>0) playerLane--;
+document.getElementById("startBtn").addEventListener("click", startGame);
+document.getElementById("startBtn").addEventListener("touchstart", function(e){
+  e.preventDefault();
+  startGame();
 });
 
+/* ===== CONTROLES MOBILE ===== */
+let startX = null;
+
+canvas.addEventListener("touchstart",function(e){
+  startX = e.touches[0].clientX;
+});
+
+canvas.addEventListener("touchend",function(e){
+  let dx = e.changedTouches[0].clientX - startX;
+  if(dx > 30 && playerLane < 2) playerLane++;
+  if(dx < -30 && playerLane > 0) playerLane--;
+});
+
+/* ===== VIBRATION ===== */
+function vibrate(type){
+  if(!navigator.vibrate) return;
+
+  if(type==="move") navigator.vibrate(20);
+  if(type==="hit") navigator.vibrate(200);
+  if(type==="bonus") navigator.vibrate([50,50,50]);
+}
+
+/* ===== OBSTACLES ===== */
 function spawnObstacle(){
-  let lane=Math.floor(Math.random()*3);
-  if(Math.random()<0.2){
-    lane=Math.floor(Math.random()*2);
-    obstacles.push({lane,y:-100,width:2});
+  let lane = Math.floor(Math.random()*3);
+
+  if(Math.random() < 0.2){
+    lane = Math.floor(Math.random()*2);
+    obstacles.push({lane:lane,y:-100,width:2});
   }else{
-    obstacles.push({lane,y:-50,width:1});
+    obstacles.push({lane:lane,y:-50,width:1});
   }
 }
 
+/* ===== UPDATE ===== */
 function update(){
-  if(!gameStarted)return;
+  if(!gameStarted) return;
 
   score++;
-  if(score%200===0)speed+=0.2;
-  if(Math.random()<0.02)spawnObstacle();
 
-  obstacles.forEach(o=>{
-    o.y+=speed;
+  if(score % 200 === 0){
+    speed += 0.15;
+  }
 
-    if(o.width===1 && Math.abs(o.y-550)<40 && o.lane===playerLane) crash();
-    if(o.width===2 && Math.abs(o.y-550)<40 &&
-      (playerLane===o.lane||playerLane===o.lane+1)) crash();
+  if(Math.random() < 0.02){
+    spawnObstacle();
+  }
+
+  obstacles.forEach(function(o){
+    o.y += speed;
+
+    if(o.width === 1 && Math.abs(o.y-550)<40 && o.lane === playerLane){
+      crash();
+    }
+
+    if(o.width === 2 && Math.abs(o.y-550)<40 &&
+      (playerLane===o.lane || playerLane===o.lane+1)){
+      crash();
+    }
   });
 
-  obstacles=obstacles.filter(o=>o.y<700);
+  obstacles = obstacles.filter(function(o){
+    return o.y < 700;
+  });
+
   draw();
 }
 
+/* ===== DRAW ===== */
 function draw(){
+
+  // fond
   ctx.fillStyle="#111";
   ctx.fillRect(0,0,360,640);
 
+  // route
   ctx.fillStyle="#333";
   ctx.fillRect(40,0,280,640);
 
-  ctx.fillStyle=vehicle==="clio"?"red":"blue";
+  // lignes route
+  ctx.fillStyle="#fff";
+  for(let i=0;i<640;i+=40){
+    ctx.fillRect(160,i,4,20);
+    ctx.fillRect(260,i,4,20);
+  }
+
+  // joueur
+  ctx.fillStyle = vehicle==="clio" ? "#ff2f2f" : "#00aaff";
   ctx.fillRect(lanes[playerLane]-20,550,40,60);
 
-  ctx.fillStyle="gray";
-  obstacles.forEach(o=>{
+  // obstacles
+  ctx.fillStyle="#888";
+  obstacles.forEach(function(o){
     ctx.fillRect(lanes[o.lane]-20,o.y,40*o.width,60);
   });
 
-  document.getElementById("hud").innerText=
-    pseudo+" | Score "+score;
+  document.getElementById("hud").innerText =
+    pseudo + " | Score : " + score;
 }
 
+/* ===== CRASH ===== */
 function crash(){
-  navigator.vibrate && navigator.vibrate(200);
-  alert("GAME OVER\nScore:"+score);
+  vibrate("hit");
+  alert("GAME OVER\\nScore : " + score);
   location.reload();
 }
 
+/* ===== LOOP ===== */
 setInterval(update,16);
 </script>
 
